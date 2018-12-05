@@ -125,7 +125,6 @@ void* safe_malloc(int size) {
 }
 
 void* read_sector(struct disk* disk, int sector, void* buffer){
-printf("begin read_sector\n");
    void* returnVal;
    long offset;
    if(!disk->fp || !buffer){
@@ -145,13 +144,11 @@ printf("begin read_sector\n");
          }
       }
    }
-printf("end read_sector\n");
    return returnVal;
 }
 
 
 void* write_sector(struct disk* disk, int sector, void* buffer){
-printf("begin write_sector\n");
    void* returnVal;
    long offset;
    if(!disk->fp || !buffer){
@@ -171,12 +168,10 @@ printf("begin write_sector\n");
          }
       }
    }
-printf("end write_sector\n");
    return returnVal;
 }
 
 void* read_block(struct disk* disk, int block, int blockSize, void* buffer){
-printf("begin read_block\n");
    void* returnVal;
    long offset;
    int result;
@@ -198,12 +193,10 @@ printf("begin read_block\n");
          }
       }
    }
-printf("end read_block\n");
    return returnVal;
 }
 
 void* write_block(struct disk* disk, int block, int blockSize, void* buffer){
-printf("begin write_block\n");
    void* returnVal;
    long offset;
    int result;
@@ -225,7 +218,6 @@ printf("begin write_block\n");
          }
       }
    }
-printf("end write_block\n");
    return returnVal;
 }
 
@@ -252,7 +244,6 @@ char* headers = " boot start_head start_sec start_cyl sys_ind end_head"
 }
 
 struct partition* read_ptable(struct disk* disk, struct partition* ptable){
-printf("begin read_ptable\n");
    void* returnVal;
    unsigned char buffer[KILOBYTE];
 
@@ -266,12 +257,10 @@ printf("begin read_ptable\n");
    else{
       returnVal = memcpy(ptable, buffer + PTABLE_OFFSET, NUMPARTS*sizeof(struct partition));
    }
-printf("end read_ptable\n");
    return returnVal;
 }
 
 static long file_size(char* fileName){
-printf("begin file_size\n");
    FILE* fp;
    long returnVal;
 
@@ -291,13 +280,11 @@ printf("begin file_size\n");
          fclose(fp);
       }
    }
-printf("end file_size\n");
    return returnVal;
 }
 
 struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
    struct disk* disk){
-printf("begin open_disk\n");
    struct partition ptable[NUMPARTS];
    if((disk->fp = fopen(fileName, mode)) == NULL){
       return NULL;
@@ -343,7 +330,6 @@ printf("begin open_disk\n");
          }
       }
    }
-printf("end open_disk\n");
    return disk;
 }
 
@@ -355,17 +341,14 @@ minFile* new_minFile(superblock* sb, struct inode* ino){
 }
 
 void* read_zone(superblock* sb, int zone, char* buffer){
-printf("begin read_zone\n");
    int i;
    int base;
-   void* returnVal;
-
-   returnVal = buffer;
+   void* returnVal = buffer;
    if(zone){
       base = zone << sb->sb.log_zone_size;
       for(i=0; i < (1 << sb->sb.log_zone_size); i++){
          if(read_block(disk_ptr, base + i, sb->sb.blocksize,
-            buffer + (sb->sb.blocksize * i))){
+            buffer + (sb->sb.blocksize * i)) == NULL){
             returnVal = NULL;
             break;
          }
@@ -374,12 +357,10 @@ printf("begin read_zone\n");
    else{
       memset(buffer, 0, zone_size);
    }
-printf("end read_zone\n");
    return returnVal;
 }
 
 int zone_matching(minFile* file, int numOfZones){
-printf("begin zone_matching\n");
    unsigned long* indirectZone = safe_malloc(zone_size);
    unsigned long* doubeIndirectZone = safe_malloc(zone_size);
    int returnVal = -1;
@@ -406,12 +387,10 @@ printf("begin zone_matching\n");
          returnVal = indirectZone[blockIndex];
       }
    }
-printf("end zone_matching\n");
    return returnVal;
 }
 
 int read_superblock(struct disk* disk, superblock* sb){
-printf("begin read_superblock\n");
    int returnVal = 1;
 
    backwards = 1;
@@ -439,18 +418,17 @@ printf("begin read_superblock\n");
       ptrs_per_zone = zone_size/sizeof(unsigned long);
       inodes_per_block = sb->sb.blocksize/sizeof(struct inode);
    }
-printf("end read_superblock\n");
    return returnVal;
 }
 
 void print_superblock(superblock* sb){
-printf("begin print_superblock\n");
    fprintf(stderr, "%s\n", "Super block stored data:");
    fprintf(stderr, "\tninodes       %6lu\n", sb->sb.ninodes);
    fprintf(stderr, "\ti_blocks      %6u\n", sb->sb.i_blocks);
    fprintf(stderr, "\tz_blocks      %6u\n", sb->sb.z_blocks);
    fprintf(stderr, "\tfirstdata     %6u\n", sb->sb.firstdata);
-   fprintf(stderr, "\tlog_zone_size %6u\n", sb->sb.log_zone_size);
+   fprintf(stderr, "\tlog_zone_size %6u (zone size: %0u)\n", 
+      sb->sb.log_zone_size, sb->sb.blocksize<< sb->sb.log_zone_size);
    fprintf(stderr, "\tmax_file      %10lu\n", sb->sb.max_file);
    fprintf(stderr, "\tmagic         0x%04x\n", sb->sb.magic);
    fprintf(stderr, "\tzones         %6lu\n", sb->sb.zones);
@@ -462,19 +440,15 @@ printf("begin print_superblock\n");
    fprintf(stderr, "\tptrs_per_zone      %6lu\n", ptrs_per_zone);
    fprintf(stderr, "\tinodes_per_block   %6lu\n", inodes_per_block);
    fprintf(stderr, "\tbackwards          %6d\n", backwards);
-printf("end print_superblock\n");
 }
 
 void* read_zone_to_static_buff(superblock* sb, int numOfZones){
-printf("begin read_zone_static\n");
    char* zone = safe_malloc(zone_size);
-printf("end read_zone_static\n");
    return read_zone(sb, numOfZones, zone);
 }
 
 
 void* write_zone(superblock* sb, int zone, char* buffer){
-printf("begin write_zone\n");
    int i;
    int base = zone << sb->sb.log_zone_size;
    void* returnVal = buffer;
@@ -485,12 +459,10 @@ printf("begin write_zone\n");
          break;
       }
    }
-printf("end write_zone\n");
    return returnVal;
 }
 
 static char* get_permissions(unsigned int mode){
-printf("begin get_permissions\n");
    static char permissions_buffer[10];
    if((mode & 0170000) == 0040000){
       permissions_buffer[0] = 'd';
@@ -552,12 +524,10 @@ printf("begin get_permissions\n");
    else{
       permissions_buffer[9] = '-';
    }
-printf("end get_permission\n");
    return permissions_buffer;
 }
 
 struct inode* read_inode(superblock* sb, int inode_num, struct inode* inode){
-printf("begin read_inode\n");
    struct inode* inode_table = safe_malloc(inodes_per_block * sizeof(inode));
    struct inode* returnVal = NULL;
    int block_num = (inode_num - 1) / inodes_per_block;
@@ -568,7 +538,6 @@ printf("begin read_inode\n");
       *inode = inode_table[node_num];
       returnVal = inode;
    }
-printf("end read_inode\n");
    return returnVal;
 }
 
@@ -593,7 +562,6 @@ void print_inode(struct inode* inode){
 }
 
 int copy_file(superblock* sb, int inode_num, FILE* dest){
-printf("begin copy_file\n");
    struct inode ino;
    int i;
    int num;
@@ -636,13 +604,11 @@ printf("begin copy_file\n");
       fprintf(stderr, "%s\n", "Cannot read inode");
       return -1;
    }
-printf("end copy_file\n");
    return 0;
 }
 
 void print_file(superblock* sb, int inodeNum, char* name, int limit, 
    FILE* dest){
-printf("begin print_file\n");
    struct inode ino;
    read_inode(sb, inodeNum, &ino);
    if(limit){
@@ -653,12 +619,10 @@ printf("begin print_file\n");
       fprintf(dest, "%s %9lu %s\n", get_permissions(ino.mode),
          ino.size, name);   
    }
-printf("end print_file\n");
 }
 
 void print_dir(superblock* sb, int inodeNum, FILE* dest){
-printf("begin print_dir\n");
-   int numOfEntries = zone_size;
+   int numOfEntries = zone_size / sizeof(struct fileentry);
    int bytes;
    int zone;
    int i;
@@ -672,19 +636,15 @@ printf("begin print_dir\n");
       zone = 0;
       zoneNum = zone_matching(file, zone);
       entry = read_zone_to_static_buff(sb, zoneNum);
-      printf("\n\n before for\n\n");
       for(bytes = ino.size; bytes > 0;){
          for(i=0; bytes && (i < numOfEntries); i++){
-printf("a\n'");
             if(entry[i].inode){
-printf("a1\n");
                print_file(sb, entry[i].inode, entry[i].name, SIZEOFDIRECTORY,
                   dest);
             }
             else if(verbose_mode > 1){
                fprintf(dest, "%s\n", entry[i].name);
             }
-printf("b\n");
             bytes -= sizeof(struct fileentry);
          }
          if(bytes){
@@ -696,11 +656,9 @@ printf("b\n");
    else{
       fprintf(stderr, "%s\n", "Failed to read inode");
    }
-printf("end print_dir\n");
 }
 
 static int find_dir(superblock* sb, int inodeNum, char* name){
-printf("begin find_dir\n");
    int numOfEntries = zone_size/sizeof(struct fileentry);
    int bytes;
    int zone;
@@ -734,12 +692,10 @@ printf("begin find_dir\n");
    else{
       fprintf(stderr, "%s\n", "Filaed to read inode");
    }
-printf("end find_dir\n");
    return 0;
 }
 
 int get_inode_path(superblock* sb, char* path){
-printf("begin get_inode\n");
    int inodeNum;
    char* tempPath;
    char* name;
@@ -755,7 +711,6 @@ printf("begin get_inode\n");
       inodeNum = find_dir(sb, inodeNum, name);
       name = strtok(NULL, "/");
    }
-printf("end get_inode\n");
    return inodeNum;
 }
 
@@ -885,7 +840,6 @@ int minget_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
 }
 
 int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
-printf("begin parse\n");
    int cmdCounter = 1;
    int c;
    char* end;
@@ -936,7 +890,6 @@ printf("begin parse\n");
       fprintf(stderr, "3. Something went wrong...\n");
       print_minls_cli_opts(argv[0]);
    }
-printf("end parse\n");
    return cmdCounter;
 }
 
