@@ -717,27 +717,26 @@ int get_inode_path(superblock* sb, char* path){
    return inodeNum;
 }
 
-void print_cli_opts(char* name){
-   fprintf(stderr, "usage: %s [ -v ] [ -p num [ -s num ] ] imagefile" 
-      "[ path ]\n", name);
-   fprintf(stderr, "Options:\n");
-   fprintf(stderr, "\t-p\t part       --- select partition for filesystem" 
-      "(default: none)\n"); 
-   fprintf(stderr, "\t-s\t sub        --- select partition for filesystem" 
-      "(default: none)\n"); 
-   fprintf(stderr, "\t-h\t help       --- print usage information and exit\n"); 
-   fprintf(stderr, "\t-v\t verbose    --- increase verbosity level\n");
-   exit(EXIT_SUCCESS);
-}
-
-void check_partition(char* end, char* argv, struct cmdlineinput* cli){
-   if(*end){
-      fprintf(stderr, "%s\n", "not an integer");
-      print_cli_opts(argv);
+void print_cli(struct cmdlineinput* cli){
+   fprintf(stderr, "\topt->part      %d\n", cli->part);
+   fprintf(stderr, "\topt->subpart   %d\n", cli->subpart);
+   if(cli->imagefile){
+      fprintf(stderr, "\topt->imagefile %s\n", cli->imagefile);
    }
-   else if(cli->part < 0 || cli->part > 3){
-      fprintf(stderr, "%s\n", "out of range, must be 0-3");
-      print_cli_opts(argv);
+   else{
+      fprintf(stderr, "\topt->imagefile (null)\n");
+   }
+   if(cli->srcpath){
+      fprintf(stderr, "\topt->srcpath   %s\n", cli->srcpath);
+   }
+   else{
+      fprintf(stderr, "\topt->srcpath   (null)\n");
+   }
+   if(cli->dstpath){
+      fprintf(stderr, "\topt->dstpath   %s\n", cli->dstpath);
+   }
+   else{
+      fprintf(stderr, "\topt->dstpath   (null)\n");
    }
 }
 
@@ -796,26 +795,3 @@ int parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
    }
    return cmdCounter;
 }  
-
-void print_cli(struct cmdlineinput* cli){
-   fprintf(stderr, "\topt->part      %d\n", cli->part);
-   fprintf(stderr, "\topt->subpart   %d\n", cli->subpart);
-   if(cli->imagefile){
-      fprintf(stderr, "\topt->imagefile %s\n", cli->imagefile);
-   }
-   else{
-      fprintf(stderr, "\topt->imagefile (null)\n");
-   }
-   if(cli->srcpath){
-      fprintf(stderr, "\topt->srcpath   %s\n", cli->srcpath);
-   }
-   else{
-      fprintf(stderr, "\topt->srcpath   (null)\n");
-   }
-   if(cli->dstpath){
-      fprintf(stderr, "\topt->dstpath   %s\n", cli->dstpath);
-   }
-   else{
-      fprintf(stderr, "\topt->dstpath   (null)\n");
-   }
-}
