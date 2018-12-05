@@ -7,30 +7,6 @@
 #include<unistd.h>
 #include "helpers.c"
 
-void print__minls_cli_opts(char* name){
-   fprintf(stderr, "usage: %s [ -v ] [ -p num [ -s num ] ] imagefile" 
-      "minixpath [ hostpath ]\n", name);
-   fprintf(stderr, "Options:\n");
-   fprintf(stderr, "\t-p\t part       --- select partition for filesystem" 
-      "(default: none)\n"); 
-   fprintf(stderr, "\t-s\t sub        --- select partition for filesystem" 
-      "(default: none)\n"); 
-   fprintf(stderr, "\t-h\t help       --- print usage information and exit\n"); 
-   fprintf(stderr, "\t-v\t verbose    --- increase verbosity level\n");
-   exit(EXIT_SUCCESS);
-}
-
-void check_partition(char* end, char* argv, struct cmdlineinput* cli){
-   if(*end){
-      fprintf(stderr, "%s\n", "not an integer");
-      print_cli_opts(argv);
-   }
-   else if(cli->part < 0 || cli->part > 3){
-      fprintf(stderr, "%s\n", "out of range, must be 0-3");
-      print_cli_opts(argv);
-   }
-}
-
 int main(int argc, char* argv[]){
    struct cmdlineinput cli;
    struct disk disk;
@@ -40,7 +16,7 @@ int main(int argc, char* argv[]){
    char error = 0;
    FILE* dest;
 
-   parse_cmdline(argc, argv, &cli);
+   minget_parse_cmdline(argc, argv, &cli);
 
    if(verbose_mode > 0){
       fprintf(stderr, "\nOptions:\n");
@@ -87,7 +63,7 @@ int main(int argc, char* argv[]){
          else{
             dest = stdout;
          }
-         copy_file(&sb, inodeNum, dest)
+         copy_file(&sb, inodeNum, dest);
       }
    }
    return error;

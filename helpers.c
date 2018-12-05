@@ -740,7 +740,55 @@ void print_cli(struct cmdlineinput* cli){
    }
 }
 
-int parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
+void print_minget_cli_opts(char* name){
+   fprintf(stderr, "usage: %s [ -v ] [ -p num [ -s num ] ] imagefile"
+      "minixpath [ hostpath ]\n", name);
+   fprintf(stderr, "Options:\n");
+   fprintf(stderr, "\t-p\t part       --- select partition for filesystem"
+      "(default: none)\n");
+   fprintf(stderr, "\t-s\t sub        --- select partition for filesystem"
+      "(default: none)\n");
+   fprintf(stderr, "\t-h\t help       --- print usage information and exit\n");
+   fprintf(stderr, "\t-v\t verbose    --- increase verbosity level\n");
+   exit(EXIT_SUCCESS);
+}
+
+void print_minls_cli_opts(char* name){
+   fprintf(stderr, "usage: %s [ -v ] [ -p num [ -s num ] ] imagefile"
+      "[ path ]\n", name);
+   fprintf(stderr, "Options:\n");
+   fprintf(stderr, "\t-p\t part       --- select partition for filesystem"
+      "(default: none)\n");
+   fprintf(stderr, "\t-s\t sub        --- select partition for filesystem"
+      "(default: none)\n");
+   fprintf(stderr, "\t-h\t help       --- print usage information and exit\n");
+   fprintf(stderr, "\t-v\t verbose    --- increase verbosity level\n");
+   exit(EXIT_SUCCESS);
+}
+
+void minls_check_partition(char* end, char* argv, struct cmdlineinput* cli){ 
+   if(*end){ 
+      fprintf(stderr, "%s\n", "not an integer"); 
+      print_minls_cli_opts(argv); 
+   } 
+   else if(cli->part < 0 || cli->part > 3){ 
+      fprintf(stderr, "%s\n", "out of range, must be 0-3"); 
+      print_minls_cli_opts(argv); 
+   } 
+} 
+
+void minget_check_partition(char* end, char* argv, struct cmdlineinput* cli){
+   if(*end){
+      fprintf(stderr, "%s\n", "not an integer");
+      print_minget_cli_opts(argv);
+   }
+   else if(cli->part < 0 || cli->part > 3){
+      fprintf(stderr, "%s\n", "out of range, must be 0-3");
+      print_minget_cli_opts(argv);
+   }
+}
+
+int minget_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
    int cmdCounter = 1;
    int c;
    char* end;
@@ -753,13 +801,13 @@ int parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
    while((c = getopt(argc, argv, "p:s:vh")) > 0){
       switch(c){
          case 'h':
-            print_cli_opts(argv[0]);
+            print_minget_cli_opts(argv[0]);
             cmdCounter++;
             break;
          case 'p':
             cli->part = strtol(optarg, &end, 0);
-            check_partition(end, argv[0], cli);
-            cmdCounter+=2;  
+            minget_check_partition(end, argv[0], cli);
+            cmdCounter+=2;
             break;
          case 'v':
             verbose_mode++;
@@ -767,13 +815,13 @@ int parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
             break;
          case 's':
             cli->subpart = strtol(optarg, &end, 0);
-            cmdCounter+=2;  
-            check_partition(end, argv[0], cli);
+            cmdCounter+=2;
+            minget_check_partition(end, argv[0], cli);
       }
    }
    if(cli->part == INACTIVE && cli->subpart != INACTIVE){
       fprintf(stderr, "%s\n", "Must have a partition to have a subpartition");
-      print_cli_opts(argv[0]);
+      print_minget_cli_opts(argv[0]);
    }
    if(cmdCounter < argc){
       cli->imagefile = argv[cmdCounter];
@@ -781,17 +829,74 @@ int parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
    }
    else{
       fprintf(stderr, "Something went wrong...\n");
-      print_cli_opts(argv[0]);
+      print_minget_cli_opts(argv[0]);
    }
    if(cmdCounter < argc){
       cli->srcpath = argv[cmdCounter];
       cmdCounter++;
    }
    else{
-      print_cli_opts(argv[0]);
+      print_minget_cli_opts(argv[0]);
    }
    if(cmdCounter < argc){
-      print_cli_opts(argv[0]);
+      print_minget_cli_opts(argv[0]);
    }
    return cmdCounter;
-}  
+}
+
+int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
+   int cmdCounter = 1;
+   int c;
+   char* end;
+   cli->part =INACTIVE;
+   cli->subpart = INACTIVE;
+   cli->imagefile = NULL;
+   cli->srcpath = NULL;
+   cli->dstpath = NULL;
+
+   while((c = getopt(argc, argv, "p:s:vh")) > 0){
+      switch(c){
+         case 'h':
+            print_minls_cli_opts(argv[0]);
+            cmdCounter++;
+            break;
+         case 'p':
+            cli->part = strtol(optarg, &end, 0);
+            minls_check_partition(end, argv[0], cli);
+            cmdCounter+=2;
+            break;
+         case 'v':
+            verbose_mode++;
+            cmdCounter++;
+            break;
+         case 's':
+            cli->subpart = strtol(optarg, &end, 0);
+            cmdCounter+=2;
+            minls_check_partition(end, argv[0], cli);
+      }
+   }
+   if(cli->part == INACTIVE && cli->subpart != INACTIVE){
+      fprintf(stderr, "%s\n", "Must have a partition to have a subpartition");
+      print_minls_cli_opts(argv[0]);
+   }
+   if(cmdCounter < argc){
+      cli->imagefile = argv[cmdCounter];
+      cmdCounter++;
+   }
+   else{
+      fprintf(stderr, "Something went wrong...\n");
+      print_minls_cli_opts(argv[0]);
+   }
+   if(cmdCounter < argc){
+      cli->srcpath = argv[cmdCounter];
+      cmdCounter++;
+   }
+   else{
+      print_minls_cli_opts(argv[0]);
+   }
+   if(cmdCounter < argc){
+      print_minls_cli_opts(argv[0]);
+   }
+   return cmdCounter;
+}
+
