@@ -55,7 +55,7 @@ int main(int argc, char* argv[]){
       }
       else{
          if(cli.dstpath){
-            if((dest = fopen(cli.dstpath, "w") == NULL)){
+            if((dest = fopen(cli.dstpath, "w")) == NULL){
                fprintf(stderr, "%s\n", "Problem writing file");
                exit(EXIT_FAILURE);
             }
