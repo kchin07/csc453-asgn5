@@ -847,7 +847,8 @@ int minget_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
 }
 
 int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
-   int cmdCounter = 1;
+   // int cmdCounter = 1;
+   extern int optind;
    int c;
    char* end;
    cli->part =INACTIVE;
@@ -860,38 +861,59 @@ int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
       switch(c){
          case 'h':
             print_minls_cli_opts(argv[0]);
-            cmdCounter++;
+            // cmdCounter++;
             break;
          case 'p':
             cli->part = strtol(optarg, &end, 0);
-            minls_check_partition(end, argv[0], cli);
-            cmdCounter+=2;
+            // minls_check_partition(end, argv[0], cli);
+            
+            if(*end){
+               fprintf(stderr, "%s\n", "not an integer");
+               print_minls_cli_opts(argv[0]);
+            }
+            else if(opt->part < 0 || opt->part > 3){
+               fprintf(stderr, "%s\n", "partition out of range");
+               print_minls_cli_opts(argv[0])
+            }
+            // cmdCounter+=2;
             break;
          case 'v':
             verbose_mode++;
-            cmdCounter++;
+            // cmdCounter++;
             break;
          case 's':
             cli->subpart = strtol(optarg, &end, 0);
-            cmdCounter+=2;
-            minls_check_partition(end, argv[0], cli);
+            // cmdCounter+=2;
+            // minls_check_partition(end, argv[0], cli);
+            if(*end){
+               fprintf(stderr, "%s\n", "not an integer");
+               print_minls_cli_opts(argv[0]);
+            }
+            else if(opt->part < 0 || opt->part > 3){
+               fprintf(stderr, "%s\n", "sub partition out of range");
+               print_minls_cli_opts(argv[0])
+            }
       }
    }
    if(cli->part == INACTIVE && cli->subpart != INACTIVE){
       fprintf(stderr, "%s\n", "Must have a partition to have a subpartition");
       print_minls_cli_opts(argv[0]);
    }
-   if(cmdCounter < argc){
-      cli->imagefile = argv[cmdCounter];
-      cmdCounter++;
+   // if(cmdCounter < argc){
+   if(optind < argc){
+      // cli->imagefile = argv[cmdCounter];
+      cli->imagefile = argv[optind++];
+      // cmdCounter++;
    }
    else{
       fprintf(stderr, "1. Something went wrong...\n");
       print_minls_cli_opts(argv[0]);
    }
-   if(cmdCounter < argc){
-      cli->srcpath = argv[cmdCounter];
-      cmdCounter++;
+   // if(cmdCounter < argc){
+   if(optind < argc){
+      // cli->srcpath = argv[cmdCounter];
+      cli->srcpath = argv[optind++];
+      // cmdCounter++;
    }
    if(cmdCounter < argc){
       fprintf(stderr, "3. Something went wrong...\n");
