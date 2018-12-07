@@ -57,7 +57,7 @@ struct superblock {
    int16_t  i_blocks;      /* # of blocks used by inode bit map */
    int16_t  z_blocks;      /* # of blocks used by zone bit map */
    uint16_t firstdata;     /* number of first data zone */
-   int16_t  log_zone_size; /* log2 of blocks per zone */
+   int16_t  log_sb->sb.zone_size; /* log2 of blocks per zone */
    int16_t  pad2;          /* make things line up again */
    uint32_t max_file;      /* maximum file size */
    uint32_t zones;         /* number of zones on disk */
@@ -65,6 +65,13 @@ struct superblock {
    int16_t  pad3;          /* make things line up again */
    uint16_t blocksize;     /* block size in bytes */
    uint8_t  subversion;    /* filesystem sub–version */
+
+   struct disk* disk_ptr;
+   unsigned short first_inode_block;
+   unsigned int zone_size;
+   unsigned long ptrs_per_zone;
+   unsigned long inodes_per_block;
+   char backwards;
 };
 
 typedef union {
@@ -101,12 +108,12 @@ struct fileentry{
 #define convert_sector_to_num(c,s) ((s) & 0x3f)
 
 static int verbose_mode = 0;
-static struct disk* disk_ptr;
-static unsigned short first_inode_block;
-static unsigned int zone_size;
-static long ptrs_per_zone;
-static unsigned long inodes_per_block;
-static char backwards;
+static struct disk* sb->sb.disk_ptr;
+static unsigned short sb->sb.first_inode_block;
+static unsigned int sb->sb.zone_size;
+static long sb->sb.ptrs_per_zone;
+static unsigned long sb->sb.inodes_per_block;
+static char sb->sb.backwards;
 
 void close_disk(struct disk* disk){
    if(disk && disk->fp){
@@ -345,9 +352,9 @@ void* read_zone(superblock* sb, int zone, char* buffer){
    int base;
    void* returnVal = buffer;
    if(zone){
-      base = zone << sb->sb.log_zone_size;
-      for(i=0; i < (1 << sb->sb.log_zone_size); i++){
-         if(read_block(disk_ptr, base + i, sb->sb.blocksize,
+      base = zone << sb->sb.log_sb->sb.zone_size;
+      for(i=0; i < (1 << sb->sb.log_sb->sb.zone_size); i++){
+         if(read_block(sb->sb.disk_ptr, base + i, sb->sb.blocksize,
             buffer + (sb->sb.blocksize * i)) == NULL){
             returnVal = NULL;
             break;
@@ -355,14 +362,14 @@ void* read_zone(superblock* sb, int zone, char* buffer){
       }
    }
    else{
-      memset(buffer, 0, zone_size);
+      memset(buffer, 0, sb->sb.zone_size);
    }
    return returnVal;
 }
 
 int zone_matching(minFile* file, int numOfZones){
-   unsigned long* indirectZone = safe_malloc(zone_size);
-   unsigned long* doubeIndirectZone = safe_malloc(zone_size);
+   unsigned long* indirectZone = safe_malloc(sb->sb.zone_size);
+   unsigned long* doubeIndirectZone = safe_malloc(sb->sb.zone_size);
    int returnVal = -1;
    int indirectIndex;
    int blockIndex;
@@ -372,16 +379,16 @@ int zone_matching(minFile* file, int numOfZones){
    }
    else{
       numOfZones -= DIRECT_ZONES;
-      if(numOfZones < ptrs_per_zone){
+      if(numOfZones < sb->sb.ptrs_per_zone){
          read_zone(file->sb, file->ino->indirect, (void*)indirectZone);
          returnVal = indirectZone[numOfZones];
       }
       else{
-         numOfZones -= ptrs_per_zone;
+         numOfZones -= sb->sb.ptrs_per_zone;
          read_zone(file->sb, file->ino->two_indirect,
             (void*)doubeIndirectZone);
-         indirectIndex = numOfZones / ptrs_per_zone;
-         blockIndex = numOfZones % ptrs_per_zone;
+         indirectIndex = numOfZones / sb->sb.ptrs_per_zone;
+         blockIndex = numOfZones % sb->sb.ptrs_per_zone;
          read_zone(file->sb, doubeIndirectZone[indirectIndex],
             (void*)indirectZone);
          returnVal = indirectZone[blockIndex];
@@ -393,7 +400,7 @@ int zone_matching(minFile* file, int numOfZones){
 int read_superblock(struct disk* disk, superblock* sb){
    int returnVal = 1;
 
-   backwards = 1;
+   sb->sb.backwards = 1;
    if(read_block(disk, 1, KILOBYTE, sb) == NULL){
       returnVal = 0;
    }
@@ -404,19 +411,19 @@ int read_superblock(struct disk* disk, superblock* sb){
    }
    if(returnVal){
       if(sb->sb.magic == MINIXMAGICNUM){
-         backwards = 0;
+         sb->sb.backwards = 0;
       }
       else{
-         backwards = 1;
-         fprintf(stderr, "%s\n", "backwards endiness");
+         sb->sb.backwards = 1;
+         fprintf(stderr, "%s\n", "sb->sb.backwards endiness");
          returnVal = 0;
       }
 
-      disk_ptr = disk;
-      first_inode_block = 2 + sb->sb.i_blocks + sb->sb.z_blocks;
-      zone_size = sb->sb.blocksize << sb->sb.log_zone_size;
-      ptrs_per_zone = zone_size/sizeof(unsigned long);
-      inodes_per_block = sb->sb.blocksize/sizeof(struct inode);
+      sb->sb.disk_ptr = disk;
+      sb->sb.first_inode_block = 2 + sb->sb.i_blocks + sb->sb.z_blocks;
+      sb->sb.zone_size = sb->sb.blocksize << sb->sb.log_sb->sb.zone_size;
+      sb->sb.ptrs_per_zone = sb->sb.zone_size/sizeof(unsigned long);
+      sb->sb.inodes_per_block = sb->sb.blocksize/sizeof(struct inode);
    }
    return returnVal;
 }
@@ -427,33 +434,33 @@ void print_superblock(superblock* sb){
    fprintf(stderr, "\ti_blocks      %6u\n", sb->sb.i_blocks);
    fprintf(stderr, "\tz_blocks      %6u\n", sb->sb.z_blocks);
    fprintf(stderr, "\tfirstdata     %6u\n", sb->sb.firstdata);
-   fprintf(stderr, "\tlog_zone_size %6u (zone size: %0u)\n", 
-      sb->sb.log_zone_size, sb->sb.blocksize<< sb->sb.log_zone_size);
+   fprintf(stderr, "\tlog_sb->sb.zone_size %6u (zone size: %0u)\n", 
+      sb->sb.log_sb->sb.zone_size, sb->sb.blocksize<< sb->sb.log_sb->sb.zone_size);
    fprintf(stderr, "\tmax_file      %10lu\n", sb->sb.max_file);
    fprintf(stderr, "\tmagic         0x%04x\n", sb->sb.magic);
    fprintf(stderr, "\tzones         %6lu\n", sb->sb.zones);
    fprintf(stderr, "\tblocksize     %6u\n", sb->sb.blocksize);
    fprintf(stderr, "\tsubversion    %6u\n", sb->sb.subversion);
    fprintf(stderr, "Other data:\n");
-   fprintf(stderr, "\tfirst_inode_block  %6u\n", first_inode_block);
-   fprintf(stderr, "\tzone_size          %6u\n", zone_size);
-   fprintf(stderr, "\tptrs_per_zone      %6lu\n", ptrs_per_zone);
-   fprintf(stderr, "\tinodes_per_block   %6lu\n", inodes_per_block);
-   fprintf(stderr, "\tbackwards          %6d\n", backwards);
+   fprintf(stderr, "\tsb->sb.first_inode_block  %6u\n", sb->sb.first_inode_block);
+   fprintf(stderr, "\tsb->sb.zone_size          %6u\n", sb->sb.zone_size);
+   fprintf(stderr, "\tsb->sb.ptrs_per_zone      %6lu\n", sb->sb.ptrs_per_zone);
+   fprintf(stderr, "\tsb->sb.inodes_per_block   %6lu\n", sb->sb.inodes_per_block);
+   fprintf(stderr, "\tsb->sb.backwards          %6d\n", sb->sb.backwards);
 }
 
 void* read_zone_to_static_buff(superblock* sb, int numOfZones){
-   char* zone = safe_malloc(zone_size);
+   char* zone = safe_malloc(sb->sb.zone_size);
    return read_zone(sb, numOfZones, zone);
 }
 
 
 void* write_zone(superblock* sb, int zone, char* buffer){
    int i;
-   int base = zone << sb->sb.log_zone_size;
+   int base = zone << sb->sb.log_sb->sb.zone_size;
    void* returnVal = buffer;
-   for(i=0; i < (1 << sb->sb.log_zone_size); i++){
-      if(write_block(disk_ptr, base + i, sb->sb.blocksize,
+   for(i=0; i < (1 << sb->sb.log_sb->sb.zone_size); i++){
+      if(write_block(sb->sb.disk_ptr, base + i, sb->sb.blocksize,
          buffer + (sb->sb.blocksize * i)) == NULL){
          returnVal = NULL;
          break;
@@ -528,12 +535,12 @@ static char* get_permissions(unsigned int mode){
 }
 
 struct inode* read_inode(superblock* sb, int inode_num, struct inode* inode){
-   struct inode* inode_table = safe_malloc(inodes_per_block * sizeof(inode));
+   struct inode* inode_table = safe_malloc(sb->sb.inodes_per_block * sizeof(inode));
    struct inode* returnVal = NULL;
-   int block_num = (inode_num - 1) / inodes_per_block;
-   int node_num = (inode_num - 1) % inodes_per_block;
+   int block_num = (inode_num - 1) / sb->sb.inodes_per_block;
+   int node_num = (inode_num - 1) % sb->sb.inodes_per_block;
 
-   if(read_block(disk_ptr, first_inode_block + block_num, sb->sb.blocksize,
+   if(read_block(sb->sb.disk_ptr, sb->sb.first_inode_block + block_num, sb->sb.blocksize,
       inode_table) != NULL){
       *inode = inode_table[node_num];
       returnVal = inode;
@@ -580,8 +587,8 @@ int copy_file(superblock* sb, int inode_num, FILE* dest){
          bytes = ino.size;
          for(i=0; i < bytes; i++){
             zoneNum = zone_matching(file, i);
-            if(zone_size < bytes){
-               num = zone_size;
+            if(sb->sb.zone_size < bytes){
+               num = sb->sb.zone_size;
             }
             else{
                num = bytes;
@@ -622,7 +629,7 @@ void print_file(superblock* sb, int inodeNum, char* name, int limit,
 }
 
 void print_dir(superblock* sb, int inodeNum, FILE* dest){
-   int numOfEntries = zone_size / sizeof(struct fileentry);
+   int numOfEntries = sb->sb.zone_size / sizeof(struct fileentry);
    int bytes;
    int zone;
    int i;
@@ -659,7 +666,7 @@ void print_dir(superblock* sb, int inodeNum, FILE* dest){
 }
 
 static int find_dir(superblock* sb, int inodeNum, char* name){
-   int numOfEntries = zone_size/sizeof(struct fileentry);
+   int numOfEntries = sb->sb.zone_size/sizeof(struct fileentry);
    int bytes;
    int zone;
    int i;
