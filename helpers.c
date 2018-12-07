@@ -295,6 +295,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
    struct disk* disk){
    struct partition ptable[NUMPARTS];
    if((disk->fp = fopen(fileName, mode)) == NULL){
+      fprintf(stderr, "%s\n", "Can't even open file and mode");
       return NULL;
    }
    disk->base = 0;
@@ -302,6 +303,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
 
    if(cli->part != INACTIVE){
       if(!read_ptable(disk, ptable)){
+         fprintf(stderr, "%s\n", "Couldn't read page table");
          close_disk(disk);
          return NULL;
       }
