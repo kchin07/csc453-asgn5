@@ -303,7 +303,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
 
    if(cli->part != INACTIVE){
       if(!read_ptable(disk, ptable)){
-         fprintf(stderr, "%s\n", "Couldn't read page table");
+         fprintf(stderr, "%s\n", "Couldn't read page table for partition");
          close_disk(disk);
          return NULL;
       }
@@ -322,6 +322,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
       }
       if(cli->subpart != INACTIVE){
          if(!read_ptable(disk, ptable)){
+            fprintf(stderr, "%s\n", "couldn't read page table for sub");
             close_disk(disk);
             return NULL;
          }
