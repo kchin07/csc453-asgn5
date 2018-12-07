@@ -57,7 +57,7 @@ struct superblock {
    int16_t  i_blocks;      /* # of blocks used by inode bit map */
    int16_t  z_blocks;      /* # of blocks used by zone bit map */
    uint16_t firstdata;     /* number of first data zone */
-   int16_t  log_sb->sb.zone_size; /* log2 of blocks per zone */
+   int16_t  log_zone_size; /* log2 of blocks per zone */
    int16_t  pad2;          /* make things line up again */
    uint32_t max_file;      /* maximum file size */
    uint32_t zones;         /* number of zones on disk */
@@ -108,13 +108,14 @@ struct fileentry{
 #define convert_sector_to_num(c,s) ((s) & 0x3f)
 
 static int verbose_mode = 0;
+/*
 static struct disk* sb->sb.disk_ptr;
 static unsigned short sb->sb.first_inode_block;
 static unsigned int sb->sb.zone_size;
 static long sb->sb.ptrs_per_zone;
 static unsigned long sb->sb.inodes_per_block;
 static char sb->sb.backwards;
-
+*/
 void close_disk(struct disk* disk){
    if(disk && disk->fp){
       fclose(disk->fp);
@@ -352,8 +353,8 @@ void* read_zone(superblock* sb, int zone, char* buffer){
    int base;
    void* returnVal = buffer;
    if(zone){
-      base = zone << sb->sb.log_sb->sb.zone_size;
-      for(i=0; i < (1 << sb->sb.log_sb->sb.zone_size); i++){
+      base = zone << sb->sb.log_zone_size;
+      for(i=0; i < (1 << sb->sb.log_zone_size); i++){
          if(read_block(sb->sb.disk_ptr, base + i, sb->sb.blocksize,
             buffer + (sb->sb.blocksize * i)) == NULL){
             returnVal = NULL;
@@ -368,8 +369,8 @@ void* read_zone(superblock* sb, int zone, char* buffer){
 }
 
 int zone_matching(minFile* file, int numOfZones){
-   unsigned long* indirectZone = safe_malloc(sb->sb.zone_size);
-   unsigned long* doubeIndirectZone = safe_malloc(sb->sb.zone_size);
+   unsigned long* indirectZone = safe_malloc(file->sb->sb.zone_size);
+   unsigned long* doubeIndirectZone = safe_malloc(file->sb->sb.zone_size);
    int returnVal = -1;
    int indirectIndex;
    int blockIndex;
@@ -379,16 +380,16 @@ int zone_matching(minFile* file, int numOfZones){
    }
    else{
       numOfZones -= DIRECT_ZONES;
-      if(numOfZones < sb->sb.ptrs_per_zone){
+      if(numOfZones < file->sb->sb.ptrs_per_zone){
          read_zone(file->sb, file->ino->indirect, (void*)indirectZone);
          returnVal = indirectZone[numOfZones];
       }
       else{
-         numOfZones -= sb->sb.ptrs_per_zone;
+         numOfZones -= file->sb->sb.ptrs_per_zone;
          read_zone(file->sb, file->ino->two_indirect,
             (void*)doubeIndirectZone);
-         indirectIndex = numOfZones / sb->sb.ptrs_per_zone;
-         blockIndex = numOfZones % sb->sb.ptrs_per_zone;
+         indirectIndex = numOfZones / file->sb->sb.ptrs_per_zone;
+         blockIndex = numOfZones % file->sb->sb.ptrs_per_zone;
          read_zone(file->sb, doubeIndirectZone[indirectIndex],
             (void*)indirectZone);
          returnVal = indirectZone[blockIndex];
@@ -421,7 +422,7 @@ int read_superblock(struct disk* disk, superblock* sb){
 
       sb->sb.disk_ptr = disk;
       sb->sb.first_inode_block = 2 + sb->sb.i_blocks + sb->sb.z_blocks;
-      sb->sb.zone_size = sb->sb.blocksize << sb->sb.log_sb->sb.zone_size;
+      sb->sb.zone_size = sb->sb.blocksize << sb->sb.log_zone_size;
       sb->sb.ptrs_per_zone = sb->sb.zone_size/sizeof(unsigned long);
       sb->sb.inodes_per_block = sb->sb.blocksize/sizeof(struct inode);
    }
@@ -435,7 +436,7 @@ void print_superblock(superblock* sb){
    fprintf(stderr, "\tz_blocks      %6u\n", sb->sb.z_blocks);
    fprintf(stderr, "\tfirstdata     %6u\n", sb->sb.firstdata);
    fprintf(stderr, "\tlog_sb->sb.zone_size %6u (zone size: %0u)\n", 
-      sb->sb.log_sb->sb.zone_size, sb->sb.blocksize<< sb->sb.log_sb->sb.zone_size);
+      sb->sb.log_zone_size, sb->sb.blocksize<< sb->sb.log_zone_size);
    fprintf(stderr, "\tmax_file      %10lu\n", sb->sb.max_file);
    fprintf(stderr, "\tmagic         0x%04x\n", sb->sb.magic);
    fprintf(stderr, "\tzones         %6lu\n", sb->sb.zones);
@@ -457,9 +458,9 @@ void* read_zone_to_static_buff(superblock* sb, int numOfZones){
 
 void* write_zone(superblock* sb, int zone, char* buffer){
    int i;
-   int base = zone << sb->sb.log_sb->sb.zone_size;
+   int base = zone << sb->sb.log_zone_size;
    void* returnVal = buffer;
-   for(i=0; i < (1 << sb->sb.log_sb->sb.zone_size); i++){
+   for(i=0; i < (1 << sb->sb.log_zone_size); i++){
       if(write_block(sb->sb.disk_ptr, base + i, sb->sb.blocksize,
          buffer + (sb->sb.blocksize * i)) == NULL){
          returnVal = NULL;
@@ -697,7 +698,7 @@ static int find_dir(superblock* sb, int inodeNum, char* name){
       }
    }
    else{
-      fprintf(stderr, "%s\n", "Filaed to read inode");
+      fprintf(stderr, "%s\n", "Failed to read inode");
    }
    return 0;
 }
@@ -847,7 +848,6 @@ int minget_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
 }
 
 int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
-   // int cmdCounter = 1;
    extern int optind;
    int c;
    char* end;
@@ -861,37 +861,31 @@ int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
       switch(c){
          case 'h':
             print_minls_cli_opts(argv[0]);
-            // cmdCounter++;
             break;
          case 'p':
             cli->part = strtol(optarg, &end, 0);
-            // minls_check_partition(end, argv[0], cli);
             
             if(*end){
                fprintf(stderr, "%s\n", "not an integer");
                print_minls_cli_opts(argv[0]);
             }
-            else if(opt->part < 0 || opt->part > 3){
+            else if(cli->part < 0 || cli->part > 3){
                fprintf(stderr, "%s\n", "partition out of range");
-               print_minls_cli_opts(argv[0])
+               print_minls_cli_opts(argv[0]);
             }
-            // cmdCounter+=2;
             break;
          case 'v':
             verbose_mode++;
-            // cmdCounter++;
             break;
          case 's':
             cli->subpart = strtol(optarg, &end, 0);
-            // cmdCounter+=2;
-            // minls_check_partition(end, argv[0], cli);
             if(*end){
                fprintf(stderr, "%s\n", "not an integer");
                print_minls_cli_opts(argv[0]);
             }
-            else if(opt->part < 0 || opt->part > 3){
+            else if(cli->part < 0 || cli->part > 3){
                fprintf(stderr, "%s\n", "sub partition out of range");
-               print_minls_cli_opts(argv[0])
+               print_minls_cli_opts(argv[0]);
             }
       }
    }
@@ -899,26 +893,20 @@ int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
       fprintf(stderr, "%s\n", "Must have a partition to have a subpartition");
       print_minls_cli_opts(argv[0]);
    }
-   // if(cmdCounter < argc){
    if(optind < argc){
-      // cli->imagefile = argv[cmdCounter];
       cli->imagefile = argv[optind++];
-      // cmdCounter++;
    }
    else{
       fprintf(stderr, "1. Something went wrong...\n");
       print_minls_cli_opts(argv[0]);
    }
-   // if(cmdCounter < argc){
    if(optind < argc){
-      // cli->srcpath = argv[cmdCounter];
       cli->srcpath = argv[optind++];
-      // cmdCounter++;
    }
-   if(cmdCounter < argc){
+   if(optind < argc){
       fprintf(stderr, "3. Something went wrong...\n");
       print_minls_cli_opts(argv[0]);
    }
-   return cmdCounter;
+   return optind;
 }
 
