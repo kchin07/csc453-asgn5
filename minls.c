@@ -17,6 +17,8 @@ int main(int argc, char* argv[]){
 
    minls_parse_cmdline(argc, argv, &cli);
 
+   print_cli(&cli);
+
    if(verbose_mode > 0){
       fprintf(stderr, "\nOptions:\n");
       print_cli(&cli);

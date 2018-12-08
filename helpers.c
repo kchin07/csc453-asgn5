@@ -136,15 +136,21 @@ void* read_sector(struct disk* disk, int sector, void* buffer){
    void* returnVal;
    long offset;
    if(!disk->fp || !buffer){
+        fprintf(stderr, "%s\n", "no disk fp or buffer");
         returnVal = NULL;
    }
    else{
       offset = disk->base + sector * SECTIONSIZE;
+      fprintf(stderr, " offset: %lu\n", offset);
+      fprintf(stderr, "disk->fp: %p\n", disk->fp);
       if(fseek(disk->fp, offset, SEEK_SET) == -1){
+         perror("problem: ");
+         fprintf(stderr, "%s\n", "fseek failure");
          returnVal = NULL;
       }
       else{
          if(fread(buffer, SECTIONSIZE, 1, disk->fp) != 1){
+            fprintf(stderr, "%s\n", "fread failure");
             returnVal = NULL;
          }
          else{
@@ -251,21 +257,22 @@ char* headers = " boot start_head start_sec start_cyl sys_ind end_head"
    }
 }
 
-struct partition* read_ptable(struct disk* disk, struct partition* ptable){
-   void* returnVal;
+struct partition* read_ptable(struct disk* disk, struct cmdlineinput* cli, 
+                              struct partition* ptable){
    unsigned char buffer[KILOBYTE];
 
    if(!read_sector(disk, 0, buffer)){
-      returnVal = NULL;
+      fprintf(stderr, "%s\n", "couldn't read sector");
+      return NULL;
    }
-   else if((buffer[SIG510] != BYTE510) || (buffer[SIG511] != BYTE511)){
+   if((buffer[SIG510] != BYTE510) || (buffer[SIG511] != BYTE511)){
       fprintf(stderr, "%s\n", "Invalid partition table\n");
-      returnVal = NULL;
+      return NULL;
    }
    else{
-      returnVal = memcpy(ptable, buffer + PTABLE_OFFSET, NUMPARTS*sizeof(struct partition));
+      return memcpy(ptable, buffer + PTABLE_OFFSET, 
+                    NUMPARTS*sizeof(struct partition));
    }
-   return returnVal;
 }
 
 static long file_size(char* fileName){
@@ -293,7 +300,9 @@ static long file_size(char* fileName){
 
 struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
    struct disk* disk){
+
    struct partition ptable[NUMPARTS];
+
    if((disk->fp = fopen(fileName, mode)) == NULL){
       fprintf(stderr, "%s\n", "Can't even open file and mode");
       return NULL;
@@ -302,7 +311,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
    disk->size = file_size(fileName);
 
    if(cli->part != INACTIVE){
-      if(!read_ptable(disk, ptable)){
+      if(!read_ptable(disk, cli, ptable)){
          fprintf(stderr, "%s\n", "Couldn't read page table for partition");
          close_disk(disk);
          return NULL;
@@ -321,7 +330,7 @@ struct disk* open_disk(char* fileName, char* mode, struct cmdlineinput* cli,
          return NULL;
       }
       if(cli->subpart != INACTIVE){
-         if(!read_ptable(disk, ptable)){
+         if(!read_ptable(disk, cli, ptable)){
             fprintf(stderr, "%s\n", "couldn't read page table for sub");
             close_disk(disk);
             return NULL;
@@ -906,7 +915,7 @@ int minls_parse_cmdline(int argc, char* argv[], struct cmdlineinput* cli){
    if(optind < argc){
       cli->srcpath = argv[optind++];
    }
-   if(optind < argc){
+   if(optind != argc){
       fprintf(stderr, "3. Something went wrong...\n");
       print_minls_cli_opts(argv[0]);
    }
